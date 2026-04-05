@@ -1,0 +1,327 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::time::Duration;
+
+use libadwaita as adw;
+use adw::prelude::*;
+use adw::Application;
+use anyhow::Result;
+use glib::ControlFlow;
+use gtk4 as gtk;
+
+use crate::config::{self, Config, SnapPreset};
+use crate::media::{MprisBackend, Playback};
+use crate::snap::{next_snap_from_drag, DragDelta};
+use crate::theme;
+
+// Icon glyphs: edit these constants to swap icon symbols.
+// Icon size and hitbox are controlled in src/theme.rs (#icon-btn, #icon-minimize, #mini-speaker, #mini-card).
+const ICON_PREV: &str = "󰙣";
+const ICON_PLAY: &str = "";
+const ICON_PAUSE: &str = "";
+const ICON_NEXT: &str = "󰙡";
+const ICON_MINIMIZE: &str = "";
+const ICON_MINI_SPEAKER: &str = "󰓃";
+
+pub fn run() -> Result<()> {
+    let _ = adw::init();
+    let app = Application::builder()
+        .application_id("dev.kky.sitar")
+        .build();
+
+    app.connect_activate(build_ui);
+    app.run();
+    Ok(())
+}
+
+fn build_ui(app: &Application) {
+    let full_width = 248;
+    let full_height = 84;
+    let mini_size = 30;
+
+    let config = match config::load_or_create() {
+        Ok(c) => c,
+        Err(err) => {
+            eprintln!("sitar: failed to load config: {err}");
+            Config::default()
+        }
+    };
+
+    theme::apply_theme(config.theme_variant);
+
+    let window = adw::ApplicationWindow::builder()
+        .application(app)
+        .title("Sitar")
+        .default_width(full_width)
+        .default_height(full_height)
+        .resizable(false)
+        .build();
+    window.set_widget_name("player-window");
+    window.set_size_request(full_width, full_height);
+
+    let card = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(4)
+        .margin_start(4)
+        .margin_end(4)
+        .margin_top(4)
+        .margin_bottom(4)
+        .build();
+    card.set_widget_name("player-card");
+    card.set_valign(gtk::Align::Start);
+    card.set_vexpand(false);
+
+    let meta_column = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(1)
+        .hexpand(true)
+        .valign(gtk::Align::Center)
+        .build();
+
+    let title = gtk::Label::builder().label("").xalign(0.0).build();
+    title.set_widget_name("title");
+
+    let subtitle = gtk::Label::builder().label("").xalign(0.0).build();
+    subtitle.set_widget_name("subtitle");
+
+    let source = gtk::Label::builder().label("").xalign(0.0).build();
+    source.set_widget_name("source");
+
+    title.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    subtitle.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    source.set_ellipsize(gtk::pango::EllipsizeMode::End);
+
+    title.set_visible(false);
+    subtitle.set_visible(false);
+    source.set_visible(false);
+
+    let controls = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(3)
+        .halign(gtk::Align::Start)
+        .valign(gtk::Align::Center)
+        .build();
+    controls.set_widget_name("controls");
+
+    let prev_btn = gtk::Button::with_label(ICON_PREV);
+    let play_btn = gtk::Button::with_label(ICON_PLAY);
+    let next_btn = gtk::Button::with_label(ICON_NEXT);
+    let minimize_btn = gtk::Button::with_label(ICON_MINIMIZE);
+
+    prev_btn.set_widget_name("icon-btn");
+    play_btn.set_widget_name("icon-btn");
+    next_btn.set_widget_name("icon-btn");
+    minimize_btn.set_widget_name("icon-minimize");
+    prev_btn.set_focusable(false);
+    play_btn.set_focusable(false);
+    next_btn.set_focusable(false);
+    minimize_btn.set_focusable(false);
+
+    controls.append(&minimize_btn);
+    controls.append(&prev_btn);
+    controls.append(&play_btn);
+    controls.append(&next_btn);
+
+    meta_column.append(&title);
+    meta_column.append(&subtitle);
+    meta_column.append(&source);
+
+    card.append(&meta_column);
+    card.append(&controls);
+
+    let mini_card = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .hexpand(false)
+        .vexpand(false)
+        .halign(gtk::Align::Center)
+        .valign(gtk::Align::Center)
+        .build();
+    mini_card.set_widget_name("mini-card");
+
+    let mini_speaker_btn = gtk::Button::with_label(ICON_MINI_SPEAKER);
+    mini_speaker_btn.set_widget_name("mini-speaker");
+    mini_speaker_btn.set_focusable(false);
+    mini_speaker_btn.set_cursor_from_name(Some("pointer"));
+    mini_card.set_cursor_from_name(Some("pointer"));
+    mini_card.append(&mini_speaker_btn);
+
+    let stack = gtk::Stack::builder()
+        .transition_type(gtk::StackTransitionType::Crossfade)
+        .transition_duration(180)
+        .hhomogeneous(false)
+        .vhomogeneous(false)
+        .build();
+    stack.add_named(&card, Some("full"));
+    stack.add_named(&mini_card, Some("mini"));
+    stack.set_visible_child_name("full");
+
+    window.set_content(Some(&stack));
+
+    let backend = Rc::new(RefCell::new(MprisBackend::new().ok()));
+    let cfg_state = Rc::new(RefCell::new(config));
+    let is_minimized = Rc::new(RefCell::new(false));
+
+    {
+        let stack = stack.clone();
+        let window = window.clone();
+        let is_minimized = Rc::clone(&is_minimized);
+        minimize_btn.connect_clicked(move |_| {
+            if *is_minimized.borrow() {
+                return;
+            }
+            *is_minimized.borrow_mut() = true;
+            stack.set_visible_child_name("mini");
+
+            let window = window.clone();
+            glib::timeout_add_local_once(Duration::from_millis(130), move || {
+                window.set_size_request(mini_size, mini_size);
+                window.set_default_size(mini_size, mini_size);
+            });
+        });
+    }
+
+    {
+        let stack_btn = stack.clone();
+        let window_btn = window.clone();
+        let is_minimized_btn = Rc::clone(&is_minimized);
+        mini_speaker_btn.connect_clicked(move |_| {
+            if !*is_minimized_btn.borrow() {
+                return;
+            }
+            *is_minimized_btn.borrow_mut() = false;
+            window_btn.set_size_request(full_width, full_height);
+            window_btn.set_default_size(full_width, full_height);
+            stack_btn.set_visible_child_name("full");
+        });
+
+        let stack_click = stack.clone();
+        let window_click = window.clone();
+        let is_minimized_click = Rc::clone(&is_minimized);
+        let mini_click = gtk::GestureClick::new();
+        mini_click.connect_released(move |_, _, _, _| {
+            if !*is_minimized_click.borrow() {
+                return;
+            }
+            *is_minimized_click.borrow_mut() = false;
+            window_click.set_size_request(full_width, full_height);
+            window_click.set_default_size(full_width, full_height);
+            stack_click.set_visible_child_name("full");
+        });
+        mini_card.add_controller(mini_click);
+    }
+
+    {
+        let backend = Rc::clone(&backend);
+        prev_btn.connect_clicked(move |_| {
+            if let Some(backend) = backend.borrow_mut().as_mut() {
+                backend.previous();
+            }
+        });
+    }
+    {
+        let backend = Rc::clone(&backend);
+        play_btn.connect_clicked(move |_| {
+            if let Some(backend) = backend.borrow_mut().as_mut() {
+                backend.play_pause();
+            }
+        });
+    }
+    {
+        let backend = Rc::clone(&backend);
+        next_btn.connect_clicked(move |_| {
+            if let Some(backend) = backend.borrow_mut().as_mut() {
+                backend.next();
+            }
+        });
+    }
+
+    {
+        let title = title.clone();
+        let subtitle = subtitle.clone();
+        let source = source.clone();
+        let play_btn = play_btn.clone();
+        let prev_btn = prev_btn.clone();
+        let next_btn = next_btn.clone();
+        let backend = Rc::clone(&backend);
+
+        glib::timeout_add_seconds_local(1, move || {
+            let mut backend_ref = backend.borrow_mut();
+            let Some(backend) = backend_ref.as_mut() else {
+                return ControlFlow::Continue;
+            };
+
+            let track = backend.refresh();
+            let has_title = !track.title.trim().is_empty();
+            let has_artist = !track.artist.trim().is_empty();
+            let has_source = !track.player_name.trim().is_empty();
+            let has_any = has_title || has_artist || has_source;
+
+            if has_title {
+                title.set_text(&track.title);
+            }
+            title.set_visible(has_title);
+
+            if has_artist {
+                subtitle.set_text(&track.artist);
+            }
+            subtitle.set_visible(has_artist);
+
+            if has_source {
+                source.set_text(&track.player_name);
+            }
+            source.set_visible(has_source);
+
+            prev_btn.set_sensitive(has_any);
+            play_btn.set_sensitive(has_any);
+            next_btn.set_sensitive(has_any);
+
+            let play_icon = match track.playback {
+                Playback::Playing => ICON_PAUSE,
+                Playback::Paused | Playback::Stopped | Playback::Unknown => ICON_PLAY,
+            };
+            play_btn.set_label(play_icon);
+
+            ControlFlow::Continue
+        });
+    }
+
+    {
+        let window_weak_full = window.downgrade();
+        let cfg_state_full = Rc::clone(&cfg_state);
+        let drag = gtk::GestureDrag::new();
+
+        drag.connect_drag_end(move |_, dx, dy| {
+            let mut cfg = cfg_state_full.borrow().clone();
+            cfg.snap = next_snap_from_drag(cfg.snap, DragDelta { dx, dy });
+            let _ = config::save(&cfg);
+            *cfg_state_full.borrow_mut() = cfg.clone();
+
+            if let Some(window) = window_weak_full.upgrade() {
+                apply_snap(&window, cfg.snap, cfg.snap_margin_px, cfg.use_layer_shell);
+            }
+        });
+
+        card.add_controller(drag);
+    }
+
+    {
+        let cfg = cfg_state.borrow().clone();
+        apply_snap(&window, cfg.snap, cfg.snap_margin_px, cfg.use_layer_shell);
+    }
+
+    window.present();
+}
+
+fn apply_snap(window: &adw::ApplicationWindow, snap: SnapPreset, margin: i32, use_layer_shell: bool) {
+    #[cfg(feature = "layer-shell")]
+    {
+        if use_layer_shell {
+            crate::snap::apply_layer_anchor(window.upcast_ref::<gtk::ApplicationWindow>(), snap, margin);
+        }
+    }
+
+    #[cfg(not(feature = "layer-shell"))]
+    {
+        let _ = (window, snap, margin, use_layer_shell);
+    }
+}

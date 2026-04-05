@@ -1,0 +1,31 @@
+[package]
+name = "sitar"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal floating music player for Wayland/Niri"
+license = "MIT"
+
+[features]
+default = []
+layer-shell = ["dep:gtk4-layer-shell"]
+
+[dependencies]
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+directories = "5.0"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+gtk4 = "0.9"
+libadwaita = "0.7"
+glib = "0.20"
+gio = "0.20"
+mpris = "2.0"
+
+[dependencies.gtk4-layer-shell]
+version = "0.4"
+optional = true
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
