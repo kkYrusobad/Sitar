@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 description = "Minimal floating music player for Wayland/Niri"
 license = "MIT"
+readme = "README.md"
+repository = "https://github.com/kkYrusobad/Sitar"
+homepage = "https://github.com/kkYrusobad/Sitar"
+documentation = "https://docs.rs/sitar"
 
 [features]
 default = []

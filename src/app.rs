@@ -2,12 +2,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
-use libadwaita as adw;
 use adw::prelude::*;
 use adw::Application;
 use anyhow::Result;
 use glib::ControlFlow;
 use gtk4 as gtk;
+use libadwaita as adw;
 
 use crate::config::{self, Config, SnapPreset};
 use crate::media::{MprisBackend, Playback};
@@ -48,7 +48,10 @@ fn make_icon_button(widget_name: &str, icon: &str) -> gtk::Button {
 }
 
 fn set_icon_button_label(button: &gtk::Button, icon: &str) {
-    if let Some(label) = button.child().and_then(|child| child.downcast::<gtk::Label>().ok()) {
+    if let Some(label) = button
+        .child()
+        .and_then(|child| child.downcast::<gtk::Label>().ok())
+    {
         label.set_label(icon);
     }
 }
@@ -332,11 +335,20 @@ fn build_ui(app: &Application) {
     window.present();
 }
 
-fn apply_snap(window: &adw::ApplicationWindow, snap: SnapPreset, margin: i32, use_layer_shell: bool) {
+fn apply_snap(
+    window: &adw::ApplicationWindow,
+    snap: SnapPreset,
+    margin: i32,
+    use_layer_shell: bool,
+) {
     #[cfg(feature = "layer-shell")]
     {
         if use_layer_shell {
-            crate::snap::apply_layer_anchor(window.upcast_ref::<gtk::ApplicationWindow>(), snap, margin);
+            crate::snap::apply_layer_anchor(
+                window.upcast_ref::<gtk::ApplicationWindow>(),
+                snap,
+                margin,
+            );
         }
     }
 
