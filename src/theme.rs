@@ -82,7 +82,7 @@ window {
 }
 #icon-btn {
   font-family: \"JetBrainsMono Nerd Font\";
-  font-size: 16px;
+  font-size: 11px;
   min-width: 22px;
   min-height: 22px;
   padding: 0;
@@ -100,8 +100,15 @@ window {
 #icon-btn:active {
   background: rgba(169, 182, 101, 0.24);
 }
+#icon-btn > label,
+#icon-minimize > label,
+#mini-speaker > label {
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+}
 #mini-card {
-  background: #d3869b; 
+  background: #3c3836; 
   border: 1px solid #5a524f;
   border-radius: 999px;
   min-width: 26px;
@@ -122,7 +129,7 @@ window {
   border-radius: 999px;
   padding: 0;
   margin: 0;
-  color: #32302f;
+  color: #ebdbb2;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -220,6 +227,13 @@ window {
 }
 #icon-btn:active {
   background: rgba(169, 182, 101, 0.24);
+}
+#icon-btn > label,
+#icon-minimize > label,
+#mini-speaker > label {
+  margin: 0;
+  padding: 0;
+  line-height: 1;
 }
 #mini-card {
   background: rgba(50, 48, 47, 0.92);
@@ -341,6 +355,13 @@ window {
 }
 #icon-btn:active {
   background: rgba(169, 182, 101, 0.24);
+}
+#icon-btn > label,
+#icon-minimize > label,
+#mini-speaker > label {
+  margin: 0;
+  padding: 0;
+  line-height: 1;
 }
 #mini-card {
   background: rgba(40, 40, 40, 0.94);

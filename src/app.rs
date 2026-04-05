@@ -16,12 +16,37 @@ use crate::theme;
 
 // Icon glyphs: edit these constants to swap icon symbols.
 // Icon size and hitbox are controlled in src/theme.rs (#icon-btn, #icon-minimize, #mini-speaker, #mini-card).
-const ICON_PREV: &str = "󰙣";
-const ICON_PLAY: &str = "";
-const ICON_PAUSE: &str = "";
-const ICON_NEXT: &str = "󰙡";
-const ICON_MINIMIZE: &str = "";
-const ICON_MINI_SPEAKER: &str = "󰓃";
+const ICON_PREV: &str = "";
+const ICON_PLAY: &str = "";
+const ICON_PAUSE: &str = "";
+const ICON_NEXT: &str = "";
+const ICON_MINIMIZE: &str = "";
+const ICON_MINI_SPEAKER: &str = "";
+
+fn make_icon_button(widget_name: &str, icon: &str) -> gtk::Button {
+    let label = gtk::Label::builder()
+        .label(icon)
+        .xalign(0.5)
+        .justify(gtk::Justification::Center)
+        .halign(gtk::Align::Center)
+        .valign(gtk::Align::Center)
+        .build();
+    label.set_single_line_mode(true);
+
+    let button = gtk::Button::new();
+    button.set_child(Some(&label));
+    button.set_widget_name(widget_name);
+    button.set_has_frame(false);
+    button.set_focusable(false);
+    button.set_cursor_from_name(Some("pointer"));
+    button
+}
+
+fn set_icon_button_label(button: &gtk::Button, icon: &str) {
+    if let Some(label) = button.child().and_then(|child| child.downcast::<gtk::Label>().ok()) {
+        label.set_label(icon);
+    }
+}
 
 pub fn run() -> Result<()> {
     let _ = adw::init();
@@ -103,19 +128,10 @@ fn build_ui(app: &Application) {
         .build();
     controls.set_widget_name("controls");
 
-    let prev_btn = gtk::Button::with_label(ICON_PREV);
-    let play_btn = gtk::Button::with_label(ICON_PLAY);
-    let next_btn = gtk::Button::with_label(ICON_NEXT);
-    let minimize_btn = gtk::Button::with_label(ICON_MINIMIZE);
-
-    prev_btn.set_widget_name("icon-btn");
-    play_btn.set_widget_name("icon-btn");
-    next_btn.set_widget_name("icon-btn");
-    minimize_btn.set_widget_name("icon-minimize");
-    prev_btn.set_focusable(false);
-    play_btn.set_focusable(false);
-    next_btn.set_focusable(false);
-    minimize_btn.set_focusable(false);
+    let prev_btn = make_icon_button("icon-btn", ICON_PREV);
+    let play_btn = make_icon_button("icon-btn", ICON_PLAY);
+    let next_btn = make_icon_button("icon-btn", ICON_NEXT);
+    let minimize_btn = make_icon_button("icon-minimize", ICON_MINIMIZE);
 
     controls.append(&minimize_btn);
     controls.append(&prev_btn);
@@ -138,10 +154,7 @@ fn build_ui(app: &Application) {
         .build();
     mini_card.set_widget_name("mini-card");
 
-    let mini_speaker_btn = gtk::Button::with_label(ICON_MINI_SPEAKER);
-    mini_speaker_btn.set_widget_name("mini-speaker");
-    mini_speaker_btn.set_focusable(false);
-    mini_speaker_btn.set_cursor_from_name(Some("pointer"));
+    let mini_speaker_btn = make_icon_button("mini-speaker", ICON_MINI_SPEAKER);
     mini_card.set_cursor_from_name(Some("pointer"));
     mini_card.append(&mini_speaker_btn);
 
@@ -279,7 +292,7 @@ fn build_ui(app: &Application) {
                 Playback::Playing => ICON_PAUSE,
                 Playback::Paused | Playback::Stopped | Playback::Unknown => ICON_PLAY,
             };
-            play_btn.set_label(play_icon);
+            set_icon_button_label(&play_btn, play_icon);
 
             ControlFlow::Continue
         });
