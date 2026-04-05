@@ -36,6 +36,10 @@ window {
   padding: 6px;
   min-height: 52px;
 }
+#player-card.idle {
+  padding: 6px;
+  min-height: 34px;
+}
 #title {
   color: #ebdbb2;
   font-family: \"JetBrainsMono Nerd Font\";
@@ -55,6 +59,9 @@ window {
 #controls {
   margin-left: 0;
   margin-top: 4px;
+}
+#controls.idle {
+  margin-top: 2px;
 }
 /* Icon size tuning (Soft variant):
    - #icon-btn: main playback icons on full card
@@ -170,6 +177,10 @@ window {
   padding: 6px;
   min-height: 52px;
 }
+#player-card.idle {
+  padding: 4px;
+  min-height: 34px;
+}
 #title {
   color: #ebdbb2;
   font-family: \"JetBrainsMono Nerd Font\";
@@ -189,6 +200,9 @@ window {
 #controls {
   margin-left: 0;
   margin-top: 4px;
+}
+#controls.idle {
+  margin-top: 2px;
 }
 /* Icon size tuning (Medium variant):
    - #icon-btn: main playback icons on full card
@@ -303,6 +317,10 @@ window {
   padding: 6px;
   min-height: 52px;
 }
+#player-card.idle {
+  padding: 4px;
+  min-height: 34px;
+}
 #title {
   color: #ebdbb2;
   font-family: \"JetBrainsMono Nerd Font\";
@@ -322,6 +340,9 @@ window {
 #controls {
   margin-left: 0;
   margin-top: 4px;
+}
+#controls.idle {
+  margin-top: 2px;
 }
 /* Icon size tuning (Hard variant):
    - #icon-btn: main playback icons on full card

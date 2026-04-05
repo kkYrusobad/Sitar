@@ -70,6 +70,8 @@ pub fn run() -> Result<()> {
 fn build_ui(app: &Application) {
     let full_width = 248;
     let full_height = 84;
+    let idle_width = 125;
+    let idle_height = 56;
     let mini_size = 30;
 
     let config = match config::load_or_create() {
@@ -146,6 +148,19 @@ fn build_ui(app: &Application) {
     controls.append(&play_btn);
     controls.append(&next_btn);
 
+    title.set_text("No active source...");
+    title.set_visible(true);
+    subtitle.set_visible(false);
+    source.set_visible(false);
+    prev_btn.set_visible(false);
+    play_btn.set_visible(false);
+    next_btn.set_visible(false);
+    prev_btn.set_sensitive(false);
+    play_btn.set_sensitive(false);
+    next_btn.set_sensitive(false);
+    card.add_css_class("idle");
+    controls.add_css_class("idle");
+
     meta_column.append(&title);
     meta_column.append(&subtitle);
     meta_column.append(&source);
@@ -179,10 +194,13 @@ fn build_ui(app: &Application) {
     stack.set_visible_child_name("full");
 
     window.set_content(Some(&stack));
+    window.set_size_request(idle_width, idle_height);
+    window.set_default_size(idle_width, idle_height);
 
     let backend = Rc::new(RefCell::new(MprisBackend::new().ok()));
     let cfg_state = Rc::new(RefCell::new(config));
     let is_minimized = Rc::new(RefCell::new(false));
+    let is_idle = Rc::new(RefCell::new(true));
 
     {
         let stack = stack.clone();
@@ -207,27 +225,39 @@ fn build_ui(app: &Application) {
         let stack_btn = stack.clone();
         let window_btn = window.clone();
         let is_minimized_btn = Rc::clone(&is_minimized);
+        let is_idle_btn = Rc::clone(&is_idle);
         mini_speaker_btn.connect_clicked(move |_| {
             if !*is_minimized_btn.borrow() {
                 return;
             }
             *is_minimized_btn.borrow_mut() = false;
-            window_btn.set_size_request(full_width, full_height);
-            window_btn.set_default_size(full_width, full_height);
+            let (target_w, target_h) = if *is_idle_btn.borrow() {
+                (idle_width, idle_height)
+            } else {
+                (full_width, full_height)
+            };
+            window_btn.set_size_request(target_w, target_h);
+            window_btn.set_default_size(target_w, target_h);
             stack_btn.set_visible_child_name("full");
         });
 
         let stack_click = stack.clone();
         let window_click = window.clone();
         let is_minimized_click = Rc::clone(&is_minimized);
+        let is_idle_click = Rc::clone(&is_idle);
         let mini_click = gtk::GestureClick::new();
         mini_click.connect_released(move |_, _, _, _| {
             if !*is_minimized_click.borrow() {
                 return;
             }
             *is_minimized_click.borrow_mut() = false;
-            window_click.set_size_request(full_width, full_height);
-            window_click.set_default_size(full_width, full_height);
+            let (target_w, target_h) = if *is_idle_click.borrow() {
+                (idle_width, idle_height)
+            } else {
+                (full_width, full_height)
+            };
+            window_click.set_size_request(target_w, target_h);
+            window_click.set_default_size(target_w, target_h);
             stack_click.set_visible_child_name("full");
         });
         mini_card.add_controller(mini_click);
@@ -265,6 +295,11 @@ fn build_ui(app: &Application) {
         let play_btn = play_btn.clone();
         let prev_btn = prev_btn.clone();
         let next_btn = next_btn.clone();
+        let window = window.clone();
+        let card = card.clone();
+        let controls = controls.clone();
+        let is_idle = Rc::clone(&is_idle);
+        let is_minimized = Rc::clone(&is_minimized);
         let backend = Rc::clone(&backend);
 
         glib::timeout_add_seconds_local(1, move || {
@@ -277,32 +312,71 @@ fn build_ui(app: &Application) {
             let has_title = !track.title.trim().is_empty();
             let has_artist = !track.artist.trim().is_empty();
             let has_source = !track.player_name.trim().is_empty();
-            let has_any = has_title || has_artist || has_source;
+            let now_idle = !(has_title || has_artist);
 
-            if has_title {
-                title.set_text(&track.title);
+            if now_idle {
+                title.set_text("No active source...");
+                title.set_visible(true);
+                subtitle.set_visible(false);
+                source.set_visible(false);
+                prev_btn.set_visible(false);
+                play_btn.set_visible(false);
+                next_btn.set_visible(false);
+                prev_btn.set_sensitive(false);
+                play_btn.set_sensitive(false);
+                next_btn.set_sensitive(false);
+            } else {
+                if has_title {
+                    title.set_text(&track.title);
+                }
+                title.set_visible(has_title);
+
+                if has_artist {
+                    subtitle.set_text(&track.artist);
+                }
+                subtitle.set_visible(has_artist);
+
+                if has_source {
+                    source.set_text(&track.player_name);
+                }
+                source.set_visible(has_source);
+
+                prev_btn.set_visible(true);
+                play_btn.set_visible(true);
+                next_btn.set_visible(true);
+                prev_btn.set_sensitive(true);
+                play_btn.set_sensitive(true);
+                next_btn.set_sensitive(true);
+
+                let play_icon = match track.playback {
+                    Playback::Playing => ICON_PAUSE,
+                    Playback::Paused | Playback::Stopped | Playback::Unknown => ICON_PLAY,
+                };
+                set_icon_button_label(&play_btn, play_icon);
             }
-            title.set_visible(has_title);
 
-            if has_artist {
-                subtitle.set_text(&track.artist);
+            let was_idle = *is_idle.borrow();
+            if was_idle != now_idle {
+                *is_idle.borrow_mut() = now_idle;
+
+                if now_idle {
+                    card.add_css_class("idle");
+                    controls.add_css_class("idle");
+                } else {
+                    card.remove_css_class("idle");
+                    controls.remove_css_class("idle");
+                }
+
+                if !*is_minimized.borrow() {
+                    let (target_w, target_h) = if now_idle {
+                        (idle_width, idle_height)
+                    } else {
+                        (full_width, full_height)
+                    };
+                    window.set_size_request(target_w, target_h);
+                    window.set_default_size(target_w, target_h);
+                }
             }
-            subtitle.set_visible(has_artist);
-
-            if has_source {
-                source.set_text(&track.player_name);
-            }
-            source.set_visible(has_source);
-
-            prev_btn.set_sensitive(has_any);
-            play_btn.set_sensitive(has_any);
-            next_btn.set_sensitive(has_any);
-
-            let play_icon = match track.playback {
-                Playback::Playing => ICON_PAUSE,
-                Playback::Paused | Playback::Stopped | Playback::Unknown => ICON_PLAY,
-            };
-            set_icon_button_label(&play_btn, play_icon);
 
             ControlFlow::Continue
         });

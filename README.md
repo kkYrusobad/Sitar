@@ -119,3 +119,4 @@ cargo publish
 
 - MPRIS covers native players and browsers that expose media controls.
 - On compositors without layer-shell support, snap is persisted but placement is best-effort.
+- When no title or artist metadata is available, Sitar enters a compact idle state, shows "Nothing playing", and keeps only the minimize control visible.
