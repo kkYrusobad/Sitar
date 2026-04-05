@@ -32,12 +32,17 @@ fn make_icon_button(widget_name: &str, icon: &str) -> gtk::Button {
         .valign(gtk::Align::Center)
         .build();
     label.set_single_line_mode(true);
+    label.set_yalign(0.5);
+    label.set_hexpand(true);
+    label.set_vexpand(true);
 
     let button = gtk::Button::new();
     button.set_child(Some(&label));
     button.set_widget_name(widget_name);
     button.set_has_frame(false);
     button.set_focusable(false);
+    button.set_halign(gtk::Align::Center);
+    button.set_valign(gtk::Align::Center);
     button.set_cursor_from_name(Some("pointer"));
     button
 }
@@ -155,6 +160,8 @@ fn build_ui(app: &Application) {
     mini_card.set_widget_name("mini-card");
 
     let mini_speaker_btn = make_icon_button("mini-speaker", ICON_MINI_SPEAKER);
+    mini_speaker_btn.set_halign(gtk::Align::Center);
+    mini_speaker_btn.set_valign(gtk::Align::Center);
     mini_card.set_cursor_from_name(Some("pointer"));
     mini_card.append(&mini_speaker_btn);
 

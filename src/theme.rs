@@ -105,7 +105,12 @@ window {
 #mini-speaker > label {
   margin: 0;
   padding: 0;
+  min-width: 1em;
+  min-height: 1em;
   line-height: 1;
+}
+#mini-speaker > label {
+  margin-top: -1px;
 }
 #mini-card {
   background: #3c3836; 
@@ -233,7 +238,12 @@ window {
 #mini-speaker > label {
   margin: 0;
   padding: 0;
+  min-width: 1em;
+  min-height: 1em;
   line-height: 1;
+}
+#mini-speaker > label {
+  margin-top: -1px;
 }
 #mini-card {
   background: rgba(50, 48, 47, 0.92);
@@ -361,7 +371,12 @@ window {
 #mini-speaker > label {
   margin: 0;
   padding: 0;
+  min-width: 1em;
+  min-height: 1em;
   line-height: 1;
+}
+#mini-speaker > label {
+  margin-top: -1px;
 }
 #mini-card {
   background: rgba(40, 40, 40, 0.94);
