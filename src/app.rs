@@ -70,7 +70,7 @@ pub fn run() -> Result<()> {
 fn build_ui(app: &Application) {
     let full_width = 248;
     let full_height = 84;
-    let idle_width = 125;
+        let idle_width = 125;
     let idle_height = 56;
     let mini_size = 30;
 
